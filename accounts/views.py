@@ -1,8 +1,10 @@
-from multiprocessing import context
-from xml.dom import ValidationErr
 from django.shortcuts import render, redirect
+from .models import UserActivateTokens
 from . import forms
 from django.core.exceptions import ValidationError
+from django.contrib.auth import authenticate, login, logout
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 
 # Create your views here.
 def home(request):
@@ -25,4 +27,34 @@ def regist(request):
   )
 
 def activate_user(request, token):
-  pass
+  user_activate_token=UserActivateTokens.objects.activate_user_by_token(token)
+  return render(
+    request, 'accounts/activate_user.html'
+  )
+
+def user_login(request):
+  login_form = forms.LoginForm(request.POST or None)
+  if login_form.is_valid():
+    email = login_form.cleaned_data.get('email')
+    password = login_form.cleaned_data.get('password')
+    user = authenticate(email = email, password=password)
+    if user:
+      if user.is_active:
+        login(request, user)
+        messages.success(request, 'ログイン完了しました')
+        return redirect('accounts:home')
+      else:
+        messages.warning(request, 'ユーザがアクティブではありません')
+    else:
+      messages.warning(request,'ユーザかパスワードが間違っています')
+  return render(
+    request, 'accounts/user_login.html', context={
+      'login_form': login_form, 
+    }
+  )
+
+@login_required
+def user_logout(request):
+  logout(request)
+  messages.success(request, 'ログアウトしました')
+  return redirect('accounts:home')
